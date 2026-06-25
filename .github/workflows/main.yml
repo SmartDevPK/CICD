@@ -9,31 +9,44 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: "8.2"
+          php-version: "8."
+          extensions: mbstring, bcmath, pdo, sqlite, pdo_sqlite
+          coverage: none
 
-      - name: Create database
-        run: touch ./database/database.sqlite
-
-      - name: Copy .env
-        run: cp .env.test .env
+      - name: Copy .env file
+        run: cp .env.example .env
 
       - name: Install dependencies
-        run: composer install --no-interaction --prefer-dist
+        run: composer install --no-interaction --prefer-dist --optimize-autoloader
 
       - name: Generate app key
         run: php artisan key:generate
 
+      - name: Create SQLite database
+        run: |
+          mkdir -p database
+          touch database/database.sqlite
+
+      - name: Set permissions
+        run: chmod -R 777 storage bootstrap/cache
+
       - name: Run migrations
+        env:
+          DB_CONNECTION: sqlite
+          DB_DATABASE: database/database.sqlite
         run: php artisan migrate --force
 
       - name: Run PHPStan
         run: ./vendor/bin/phpstan analyse
 
       - name: Run PHPUnit tests
-        run: ./vendor/bin/phpunit   
+        env:
+          DB_CONNECTION: sqlite
+          DB_DATABASE: database/database.sqlite
+        run: ./vendor/bin/phpunit
